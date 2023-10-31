@@ -25,33 +25,56 @@ The code supports the [WikiWeb2M] datasets (https://github.com/google-research-d
 ## Data preprocessing
 
 First, make a folder to download the WikiWeb2M dataset: `mkdir wikiweb2m/raw`.
-Then download all Train/Validation/Test files from the WikiWeb2M into `wikiweb2m/raw'.
+Then download all Train/Validation/Test files from the WikiWeb2M into `wikiweb2m/raw`.
+Next, make a folder to download images: `mkdir wikiweb2m/raw/images`.
+Finally, run `preprocess_data.py` to convert the WikiWeb2M dataset into pytorch format.
 
 ```
-python prepare_data.py --dataset <dataset codename> --remove_nan_skills
+python preprocess_data.py
 ```
+
+The output training/validation/test set sizes for section summarization is as follows:
+
+| Number of | Train | Validation | Test |
+| ---- | ---- | ---- | ---- |
+| Sections | 680K | 170K | 170K |
 
 ## Training
 
-#### Logistic Regression
+#### Script
 
-To encode a sparse feature matrix with specified features:
-- Item Response Theory (IRT): `-i` 
-- PFA: `-s -sc -w -a` 
-- DAS3H: `-i -s -sc -w -a -tw`
-- Best logistic regression features (Best-LR): `-i -s -ic -sc -tc -w -a`
+In `script/train_generation.sh`, you can specify the base model (`MODEL_NAME`), the task (`TASK`; currently we support only section summarization 'section'), the neighbor context (`CONTEXT`).
+For `CONTEXT`, there are four options as follows:
 
-```
-python encode.py --dataset <dataset codename> <feature flags>
-```
+| CONTEXT | description |
+| ---- | ---- |
+| section_only | use only text in the target section |
+| section_all | use text and images in the target section |
+| text_only | use only text in the all page |
+| all | use text and images in the all page |
 
-To train a logistic regression model with a sparse feature matrix encoded through encode.py:
+You can set how to encode text neighbors using `NEIGHBOR_MODE`. There are two options as follows:
 
-```
-python train_lr.py --X_file data/<dataset codename>/X-<feature suffix>.npz --dataset <dataset codename>
-```
+| NEIGHBOR_MODE | description |
+| ---- | ---- |
+| raw | concatenate text neighbors as raw text into the input text |
+| embedding | embed text neighbors using `text_model` and concatenate embeddings into the input text |
 
-#### Deep Knowledge Tracing
+You can set the parameter-efficient fine-tuning (PEFT) option in the script using `PEFT_TYPE`. There are four PEFT options.
+
+| CONTEXT | description |
+| ---- | ---- |
+| none | full finetune |
+| prompt | prompt tuning |
+| prefix | prefix tuning |
+| lora | LoRA |
+| flamingo | fine-tune only newly added cross-attention; can be used on decode-only models with `neighbor_mode = embedding`|
+
+In the script, you can change `max_input_length` and `max_output_length` in addition to other optimization hyperparameters (e.g., `epochs`, `learning_rate`, `per_device_train_batch_size`). 
+You can set which models to encode text and image neighbors using `text_model` and `visual_model`.
+All arguments you can set are defined under `Argument` class in `language_modelling/run_generation.py`.
+
+#### File description
 
 To train a DKT model:
 

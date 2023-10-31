@@ -1,0 +1,14 @@
+accelerate
+datasets
+dill
+evaluate
+nltk
+numpy
+pandas
+peft
+pillow
+pyarrow
+requests
+tqdm
+transformers
+wandb

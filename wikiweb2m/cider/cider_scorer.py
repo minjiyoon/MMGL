@@ -1,6 +1,12 @@
+"""
+The following code block is adapted from:
+- Repository: Describes the class to compute the CIDEr (Consensus-Based Image Description Evaluation) Metric
+- Author: Ramakrishna Vedantam <vrama91@vt.edu> and Tsung-Yi Lin <tl483@cornell.edu>
+- Link: https://github.com/vrama91/cider
+- Creation Date: Sun Feb  8 14:16:54 2015
+"""
+
 #!/usr/bin/env python
-# Tsung-Yi Lin <tl483@cornell.edu>
-# Ramakrishna Vedantam <vrama91@vt.edu>
 
 import copy
 from collections import defaultdict

@@ -1,19 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
-# Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
-# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+
 """ Finetuning summary generation models"""
 from collections import OrderedDict
 import json
@@ -88,13 +75,13 @@ class Arguments:
         default=False, metadata={"help": "Overwrite the cached preprocessed datasets or not."}
     )
     dataset: Optional[str] = field(
-        default='wikiweb2m', metadata={"help": "The name of the dataset to use (via the datasets library)."}
+        default='wikiweb2m', metadata={"help": "The name of the dataset to use."}
     )
     task: Optional[str] = field(
-        default='section_summarization', metadata={"help": "The domain of OAG datasets"}
+        default='section', metadata={"help": "One of three generation tasks in WikiWeb2M"}
     )
     context: Optional[str] = field(
-        default='section_only', metadata={"help": "The domain of OAG datasets"}
+        default='section_only', metadata={"help": "Range of neighbor context: section_only, section_all, text_only, all"}
     )
     max_input_length: Optional[int] = field(
         default=512, metadata={"help": "maximum token length of input text"}
@@ -104,7 +91,7 @@ class Arguments:
     )
 
     wandb_project: Optional[str] = field(
-        default='MMHG', metadata={"help": "wandb project name"}
+        default='MMGL', metadata={"help": "wandb project name"}
     )
     wandb_run: Optional[str] = field(
         default='default', metadata={"help": "wandb run name"}
@@ -113,7 +100,7 @@ class Arguments:
         default='log', metadata={"help": "logging dir"}
     )
     save_dir: Optional[str] = field(
-        default=None, metadata={"help": "logging dir"}
+        default=None, metadata={"help": "save dir"}
     )
     resume: Optional[str] = field(
         default=None, metadata={"help": "path to latest checkpoint (default: none)"}
@@ -137,7 +124,7 @@ class Arguments:
         default=4, metadata={"help": "Batch size per device during training."}
     )
     per_device_val_batch_size: Optional[int] = field(
-        default=4, metadata={"help": "Batch size per device during evaluation/test."}
+        default=4, metadata={"help": "Batch size per device during validation/test."}
     )
     dataloader_num_workers: Optional[int] = field(
         default=4, metadata={"help": "Number of threads to read data."}
@@ -153,10 +140,10 @@ class Arguments:
         default=2000, metadata={"help": "Number of training steps per epoch."}
     )
     val_steps_per_epoch: Optional[int] = field(
-        default=1000, metadata={"help": "Number of training steps per epoch."}
+        default=1000, metadata={"help": "Number of validation/test steps per epoch."}
     )
     print_freq: Optional[int] = field(
-        default=50, metadata={"help": "print frequency (default: 10)"}
+        default=50, metadata={"help": "print frequency"}
     )
 
     learning_rate: Optional[float] = field(
@@ -191,10 +178,10 @@ class Arguments:
         default=None, metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
     decoder_only: Optional[bool] = field(
-        default=False, metadata={"help": "opt or mpt"}
+        default=False, metadata={"help": "whether LM models are decoder-only: opt or mpt"}
     )
     cross_attention: Optional[bool] = field(
-        default=False, metadata={"help": "mlp"}
+        default=False, metadata={"help": "whether LM models use cross-attention: mpt"}
     )
     text_model: str = field(
         default="roberta-base", metadata={"help": "text model to encode neighbor texts"}
@@ -203,32 +190,32 @@ class Arguments:
         default="openai/clip-vit-base-patch16", metadata={"help": "visual model to encode neighbor images"}
     )
     n_text_tokens: int = field(
-        default=4, metadata={"help": "visual model to encode neighbor images"}
+        default=4, metadata={"help": "number of tokens for text embeddings"}
     )
     n_visual_tokens: int = field(
-        default=4, metadata={"help": "visual model to encode neighbor images"}
+        default=4, metadata={"help": "number of tokens for visual embeddings"}
     )
     freeze_lm: Optional[bool] = field(
-        default=False, metadata={"help": "evaluate model on validation set."}
+        default=False, metadata={"help": "whether to freeze LM parameters"}
     )
     neighbor_mode: str = field(
-        default="raw", metadata={"help": "position id type for text neighbors"}
+        default="raw", metadata={"help": "how to encode neighbor information: raw, embedding"}
     )
     max_text_neighbors: int = field(
-        default=11, metadata={"help": "maximum number of text neighbors"}
+        default=11, metadata={"help": "maxinum number of text neighbors"}
     )
     max_image_neighbors: int = field(
         default=5, metadata={"help": "maximum number of image neighbors"}
     )
     position_type: str = field(
-        default="none", metadata={"help": "position id type for text neighbors"}
+        default="none", metadata={"help": "position id type for text/image neighbors"}
     )
 
     num_neighbor_layers: int = field(
-        default=4, metadata={"help": "number of cross-attention layers for neighbor information"}
+        default=4, metadata={"help": "number of cross-attention layers to encode neighbor information"}
     )
     peft_type: str = field(
-        default="none", metadata={"help": "lora type for cross attention"}
+        default="none", metadata={"help": "peft type: none, prefix, prompt, lora, flamingo"}
     )
     lora_r: int = field(
         default=64, metadata={"help": "lora row rank"}
@@ -246,6 +233,7 @@ def main():
     parser = HfArgumentParser((Arguments))
     args = parser.parse_args_into_dataclasses()[0]
 
+    # Set a new log directory
     i = 0
     log_dir = os.path.join(args.log_dir, f'{args.wandb_run}_{i}')
     while os.path.exists(log_dir):
@@ -261,6 +249,7 @@ def main():
 
     print(f'Logging to {log_dir}.')
 
+    # Prepare seed
     if args.seed is not None:
         random.seed(args.seed)
         torch.manual_seed(args.seed)
@@ -277,20 +266,34 @@ def main():
 
 
 def main_worker(gpu, world_size, args, log_dir, run):
+    """
+    Main worker function to train and evaluate models.
+    Args:
+        gpu (int): GPU id to use.
+        world_size (int): Number of GPUs to use.
+        args (Arguments): Arguments.
+        log_dir (str): Logging directory.
+        run (wandb run): Wandb run.
+    """
+
+    # Variable to keep track of best model so far.
     global best_acc1
     print("Use GPU: {} for training".format(gpu))
     dist.init_process_group(backend='nccl', init_method='tcp://127.0.0.1:1337', world_size=world_size, rank=gpu)
 
     # Prepare pretrained model
     if "t5" in args.model_name_or_path:
+        # encoder-decoder models
         args.decoder_only = False
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False)
         model = SelfAttentionModel(args, tokenizer)
     elif "opt" in args.model_name_or_path:
+        # decoder-only models
         args.decoder_only = True
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False)
         model = SelfAttentionModel(args, tokenizer)
     elif "mpt" in args.model_name_or_path:
+        # OPT models with newly added cross-attention layers
         args.decoder_only = True
         args.model_name_or_path = args.model_name_or_path.replace("mpt", "opt")
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False)
@@ -419,17 +422,32 @@ def main_worker(gpu, world_size, args, log_dir, run):
     evaluate_loop(test_loader, model, tokenizer, args.epochs, args, run, "test")
 
 def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args, run):
+    """
+    Train loop for one epoch.
+    Args:
+        train_loader (DataLoader): Training dataloader.
+        model (nn.Module): Model to train.
+        tokenizer (PreTrainedTokenizer): Tokenizer.
+        optimizer (Optimizer): Optimizer to use.
+        epoch (int): Current epoch.
+        scheduler (Scheduler): Scheduler to use.
+        args (Arguments): Arguments.
+        run (wandb run): Wandb run.
+    """
     gpu, world_size = dist.get_rank(), dist.get_world_size()
     ngpus_per_node = torch.cuda.device_count()
 
+    # Metrics
     batch_time = utils.AverageMeter('Time', ':6.3f')
     data_time = utils.AverageMeter('Data', ':6.3f')
     forward_time = utils.AverageMeter('Forward', ':6.3f')
     losses = utils.AverageMeter('Loss', ':.4e')
 
+    # Progress bar
     if gpu % world_size == 0:
         progress = utils.ProgressMeter(args.steps_per_epoch, [batch_time, losses], prefix="Epoch: [{}]".format(epoch))
 
+    # Additional loss just to record the summary loss on decoder-only models
     if args.decoder_only:
         loss_fct = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
 
@@ -445,10 +463,10 @@ def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args
         loss = outputs.loss
         if args.decoder_only:
             logits = outputs.logits
-            # only consider loss on reference summary just like seq2seq models
+            # Only consider loss on reference summary just like encoder-decoder models
             shift_logits = logits[..., args.max_input_length:-1, :].contiguous()
             shift_labels = batch['labels'][..., (args.max_input_length + 1):].contiguous()
-            # summary_loss
+            # Summary_loss
             summary_loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             losses.update(summary_loss.item(), batch["input_ids"].size(0))
         else:
@@ -456,7 +474,7 @@ def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args
         loss = loss / args.grad_accumulation_steps
         loss.backward()
 
-        # Update weights
+        # Update weights every args.grad_accumulation_steps
         if ((i + 1) % args.grad_accumulation_steps == 0) or (i == args.steps_per_epoch - 1):
             optimizer.step()
             if scheduler is not None:
@@ -465,6 +483,7 @@ def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args
                     nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
             optimizer.zero_grad()
 
+            # Log metrics every update step
             actual_step = (epoch * args.steps_per_epoch + i + 1) // args.grad_accumulation_steps
             if actual_step == 1 or actual_step % args.print_freq == 0:
                 losses.all_reduce()
@@ -473,10 +492,9 @@ def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args
                 forward_time.all_reduce()
                 ex_per_sec = (args.per_device_train_batch_size / batch_time.avg) * ngpus_per_node
 
+                # Log only on the first GPU
                 if gpu % world_size == 0:
                     progress.display(i + 1)
-                    #curr_lr = scheduler.get_last_lr()
-                    #run.log({"train/lr": curr_lr[0]}, step=actual_step)
                     run.log({"train/loss": losses.avg}, step=actual_step)
                     run.log({"metrics/total_secs_per_batch": batch_time.avg}, step=actual_step)
                     run.log({"metrics/data_secs_per_batch": data_time.avg}, step=actual_step)
@@ -488,7 +506,7 @@ def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args
                 data_time.reset()
                 forward_time.reset()
 
-        # measure elapsed time
+        # Measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -496,10 +514,23 @@ def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args
             break
 
 
-# Evaluate loop
 def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
+    """
+    Evaluate loop.
+    Args:
+        val_loader (DataLoader): Validation dataloader.
+        model (nn.Module): Model to evaluate.
+        tokenizer (PreTrainedTokenizer): Tokenizer.
+        epoch (int): Current epoch.
+        args (Arguments): Arguments.
+        run (wandb run): Wandb run.
+        prefix (str): Prefix to use for logging.   
+    """
+
     gpu, world_size = dist.get_rank(), dist.get_world_size()
     ngpus_per_node = torch.cuda.device_count()
+
+    # Three metrics to evaluate summarization: BLEU, ROUGE, CIDEr
     bleu_scorers = [BLEUScore(n_gram=i) for i in [1, 2, 3, 4]]
     rouge_scorer = ROUGEScore()
     cider_scorer = Cider()
@@ -517,13 +548,15 @@ def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
     rougeLsum = utils.AverageMeter('ROUGE@Lsum', ':6.2f', utils.Summary.AVERAGE)
     cider = utils.AverageMeter('CIDER', ':6.2f', utils.Summary.AVERAGE)
 
+    # Progress bar
     if gpu % world_size == 0:
         progress = utils.ProgressMeter(args.val_steps_per_epoch, [batch_time, losses], prefix=f'{prefix}: ')
 
+    # Additional loss just to record the summary loss on decoder-only models
     if args.decoder_only:
         loss_fct = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
 
-    # switch to evaluate mode
+    # Switch to evaluate mode
     model.eval()
     with torch.no_grad():
         end = time.time()
@@ -537,7 +570,7 @@ def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
             outputs = model(**batch)
             logits = outputs.logits
             if args.decoder_only:
-                # only consider loss on reference summary just like seq2seq models
+                # Only consider loss on reference summary just like encoder-decoder models
                 logits = logits[..., args.max_input_length:-1, :].contiguous()
                 labels = batch['labels'][..., (args.max_input_length + 1):].contiguous()
                 loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
@@ -547,12 +580,14 @@ def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
             losses.update(loss.item(), batch["input_ids"].size(0))
 
             if prefix == "test":
+                # Generate tokens sequentially
                 if args.decoder_only:
                     generated_ids = model.module.generate(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"], max_new_tokens=32)
                 else:
                     generated_ids = model.module.generate(input_ids=batch["input_ids"][..., :args.max_input_length, :].contiguous(), \
                                                     attention_mask=batch["attention_mask"][..., :args.max_input_length, :].contiguous(), max_new_tokens=32)
             else:
+                # Generate tokens based on the input text
                 generated_ids = torch.argmax(logits, dim=-1)
 
             all_generated_ids = [torch.zeros_like(generated_ids) for _ in range(dist.get_world_size())]
@@ -579,7 +614,7 @@ def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
                     all_generated_captions.append(generated_captions[cap_i])
                 all_gt_captions.append([gt_captions[cap_i]])
 
-            # measure elapsed time
+            # Measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
 
@@ -599,8 +634,6 @@ def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
             for cap_i, cap in enumerate(all_gt_captions[:max_to_display]):
                 print(f'{cap_i}) {cap}')
             print('=' * 30)
-
-        #utils.postprocess_text(all_generated_captions, all_gt_captions)
 
         bleu1_score = bleu_scorers[0](all_generated_captions, all_gt_captions)
         bleu1.update(bleu1_score, 1)

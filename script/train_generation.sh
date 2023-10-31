@@ -6,6 +6,8 @@ export PYTHONPATH=.
 MODEL_NAME='facebook/opt-350m'
 TASK='section'
 CONTEXT='all'
+NEIGHBOR_MODE='raw'
+PEFT_TYPE='none'
 DESCRIPTION=${MODEL_NAME}-${TASK}-${CONTEXT}
 
 python language_modelling/run_generation.py \
@@ -13,6 +15,8 @@ python language_modelling/run_generation.py \
     --model_name_or_path ${MODEL_NAME} \
     --task ${TASK} \
     --context ${CONTEXT} \
+    --neighbor_mode ${NEIGHBOR_MODE} \
+    --peft_type ${PEFT_TYPE} \
     --max_input_length 512 \
     --max_output_length 128 \
     --epochs 50 \

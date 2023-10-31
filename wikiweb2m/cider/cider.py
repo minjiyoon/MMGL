@@ -1,11 +1,10 @@
-# Filename: cider.py
-#
-# Description: Describes the class to compute the CIDEr (Consensus-Based Image Description Evaluation) Metric
-#               by Vedantam, Zitnick, and Parikh (http://arxiv.org/abs/1411.5726)
-#
-# Creation Date: Sun Feb  8 14:16:54 2015
-#
-# Authors: Ramakrishna Vedantam <vrama91@vt.edu> and Tsung-Yi Lin <tl483@cornell.edu>
+"""
+The following code block is adapted from:
+- Repository: Describes the class to compute the CIDEr (Consensus-Based Image Description Evaluation) Metric
+- Author: Ramakrishna Vedantam <vrama91@vt.edu> and Tsung-Yi Lin <tl483@cornell.edu>
+- Link: https://github.com/vrama91/cider
+- Creation Date: Sun Feb  8 14:16:54 2015
+"""
 
 from .cider_scorer import CiderScorer
 

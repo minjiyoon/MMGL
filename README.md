@@ -19,8 +19,8 @@ conda activate mmgl
 pip install -r requirements.txt
 pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
 ```
-
-The code supports the [WikiWeb2M] datasets (https://github.com/google-research-datasets/wit/blob/main/wikiweb2m.md):
+The code 
+The code supports the [WikiWeb2M](https://github.com/google-research-datasets/wit/blob/main/wikiweb2m.md) dataset.
 
 ## Data preprocessing
 
@@ -76,19 +76,22 @@ All arguments you can set are defined under `Argument` class in `language_modell
 
 #### File description
 
-To train a DKT model:
+We provide brief descriptions for each file as follows:
 
-```
-python train_dkt2.py --dataset <dataset codename> 
-```
-
-#### Self-Attentive Knowledge Tracing
-
-To train a SAKT model:
-
-```
-python train_sakt.py --dataset <dataset codename>
-```
+| Directory/File | description |
+| ---- | ---- |
+| wikiweb2m/ | codes related to WikiWeb2M dataset |
+| wikiweb2m/cider | compute CIDEr scores |
+| wikiweb2m/data.py | prepare each training point based on `context` and `neighbor_mode` |
+| wikiweb2m/preprocess_data.py | codes to preprocess WikiWeb2M dataset and download images |
+| script/ | codes to run MMGL |
+| script/train_generation.sh | set hyperparameters |
+| language_modelling/ | main directory |
+| language_modelling/run_generation.py | prepare models, read datasets, train/validation loops |
+| language_modelling/utils.py | full finetune |
+| model/ | full finetune |
+| model/modelling_self_attention.py | full finetune |
+| model/modelling_cross_attention.py | full finetune |
 
 ## Results (AUC)
 

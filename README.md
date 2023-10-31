@@ -19,7 +19,7 @@ conda activate mmgl
 pip install -r requirements.txt
 pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
 ```
-The code 
+The code is implemented on PyTorch DistributedDataParallel.
 The code supports the [WikiWeb2M](https://github.com/google-research-datasets/wit/blob/main/wikiweb2m.md) dataset.
 
 ## Data preprocessing
@@ -88,18 +88,18 @@ We provide brief descriptions for each file as follows:
 | script/train_generation.sh | set hyperparameters |
 | language_modelling/ | main directory |
 | language_modelling/run_generation.py | prepare models, read datasets, train/validation loops |
-| language_modelling/utils.py | full finetune |
-| model/ | full finetune |
-| model/modelling_self_attention.py | full finetune |
-| model/modelling_cross_attention.py | full finetune |
+| language_modelling/utils.py | utility functions |
+| model/ | language models |
+| model/modelling_self_attention.py | LMs only with self-attention; including encoder-decoder and decoder-only models  |
+| model/modelling_cross_attention.py | LMs with cross-attention to encode neighbor information; decoder-only models|
 
-## Results (AUC)
-
-| Algorithm      | assist09      | assist12 | assist15      | assist17 | bridge06 | algebra05 | spanish  | statics  |
-| -------------- | ------------- | -------- | ------------- | -------- | -------- | --------- | -------- | -------- |
-| IRT            | 0.69          | 0.71     | 0.64          | 0.68     | 0.75     | 0.77      | 0.68     | 0.79     |       
-| PFA            | 0.72          | 0.67     | 0.69          | 0.62     | 0.77     | 0.76      | 0.85     | 0.69     |
-| DAS3H          | -             | 0.74     | -             | 0.69     | 0.79     | **0.83**  | -        | -        |
-| Best-LR        | **0.77**      | 0.75     | 0.70          | 0.71     | **0.80** | **0.83**  | **0.86** | 0.82     |
-| DKT            | 0.75          | **0.77** | **0.73**      | **0.77** | 0.79     | 0.82      | 0.83     | **0.83** |
-| SAKT           | 0.75          | 0.73     | **0.73**      | 0.72     | 0.78     | 0.80      | 0.83     | 0.81     |
+## Citation
+If you find this work or our code useful, please consider citing:
+```
+@article{yoon2023multimodal,
+  title={Multimodal Graph Learning for Generative Tasks},
+  author={Yoon, Minji and Koh, Jing Yu and Hooi, Bryan and Salakhutdinov, Ruslan},
+  journal={arXiv preprint arXiv:2310.07478},
+  year={2023}
+}
+```

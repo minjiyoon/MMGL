@@ -25,6 +25,8 @@ from peft import (
     get_peft_model,
 )
 
+from .graph import GCN
+
 
 class TextPooler(nn.Module):
     """
@@ -55,6 +57,7 @@ class SelfAttentionModel(nn.Module):
         self.context = args.context
         self.decoder_only = args.decoder_only
         self.neighbor_mode = args.neighbor_mode
+        self.position_type = args.position_type
         self.n_text_tokens = args.n_text_tokens
         self.n_visual_tokens = args.n_visual_tokens
         self.tokenizer = tokenizer
@@ -127,7 +130,18 @@ class SelfAttentionModel(nn.Module):
             self.visual_model.eval()
             for param in self.visual_model.parameters():
                 param.requires_grad = False
+        
+        if self.position_type == "laplacian":
+            if self.context in ("section_only", "section_all", "text_only") or self.neighbor_mode == "raw":
+                raise ValueError(f"[Laplacian PE] neighbor mode: {self.neighbor_mode} and context: {self.context} are not supported.")
+            k = 1 + args.max_text_neighbors + args.max_image_neighbors - 5
+            embedding_dim = self.input_embeddings.embedding_dim * args.n_text_tokens
+            self.lpe_embeddings = nn.Linear(k, embedding_dim)
 
+        if self.position_type == "gnn":
+            embedding_dim = self.input_embeddings.embedding_dim * args.n_text_tokens
+            self.gnn = GCN(input_dim=embedding_dim, output_dim=embedding_dim, hidden_dim=self.text_model.config.hidden_size)
+        
         # Freeze the base LM if needed
         if self.args.freeze_lm:
             print("Freezing the LM.")
@@ -207,7 +221,9 @@ class SelfAttentionModel(nn.Module):
         text_locations=None,
         neighbor_images=None,
         neighbor_images_pos_ids=None,
-        image_locations=None
+        image_locations=None,
+        lpe=None,
+        graph=None
     ):
         """
         Args:
@@ -287,6 +303,18 @@ class SelfAttentionModel(nn.Module):
             neighbor_attention_mask[batch_idx, text_locations] = text_attention_mask
             neighbor_attention_mask[batch_idx, image_locations] = visual_attention_mask
             neighbor_attention_mask = neighbor_attention_mask.reshape(batch_size, -1)
+
+            # Graph position encoding
+            if self.context == "all":
+                if self.position_type == "laplacian":
+                    lpe_embeddings = self.lpe_embeddings(lpe)
+                    lpe_embeddings = lpe_embeddings.reshape(batch_size, total_neighbor_num + 1, n_tokens, hidden_dim)
+                    neighbor_embeds = neighbor_embeds + lpe_embeddings[:, 1:].reshape(batch_size, -1, hidden_dim)
+                elif self.position_type == "gnn":
+                    neighbor_embeds = neighbor_embeds.view(batch_size, total_neighbor_num, n_tokens, hidden_dim).view(batch_size, total_neighbor_num, -1)
+                    gnn_embeds = self.gnn(neighbor_embeds, graph)
+                    neighbor_embeds = neighbor_embeds + gnn_embeds
+                    neighbor_embeds = neighbor_embeds.view(batch_size, total_neighbor_num, n_tokens, hidden_dim).view(batch_size, -1, hidden_dim)
 
             # Concatenate neighbor embeddings into input token embeddings
             input_embs = self.input_embeddings(input_ids)

@@ -187,8 +187,8 @@ class DataParser():
 
         for page_id, d in enumerate(self.dataset):
             # we sample first 600k pages
-            if page_id < 600000:
-                continue
+            if page_id == 600000:
+                break
             if page_id % 1000 == 0:
                 print(page_id, 'have processed...')
             image_urls = tf.sparse.to_dense(d[1]['section_image_url']).numpy()

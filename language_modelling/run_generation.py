@@ -29,7 +29,8 @@ mp.set_sharing_strategy('file_system')
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim.lr_scheduler import StepLR
-from torchmetrics import BLEUScore, ROUGEScore
+from torchmetrics import BLEUScore
+from torchmetrics.text import ROUGEScore
 from warmup_scheduler import GradualWarmupScheduler
 
 from datasets import load_dataset

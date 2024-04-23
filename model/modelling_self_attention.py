@@ -121,7 +121,7 @@ class SelfAttentionModel(nn.Module):
         self.visual_model = None
         if self.context in ("session_all", "all"):
             # Vision model to compute embeddings for image neighbors
-            embedding_dim = self.input_embeddings.embedding_dim * args.n_vision_tokens
+            embedding_dim = self.input_embeddings.embedding_dim * args.n_visual_tokens
             self.visual_model = CLIPVisionModel.from_pretrained(args.visual_model)
             self.visual_embeddings = nn.Linear(self.visual_model.config.hidden_size, embedding_dim)
             if args.position_type != "none":

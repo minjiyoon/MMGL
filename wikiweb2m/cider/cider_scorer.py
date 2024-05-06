@@ -22,6 +22,8 @@ def precook(s, n=4, out=False):
     :param n: int    : number of ngrams for which representation is calculated
     :return: term frequency vector for occuring ngrams
     """
+    if isinstance(s, (list, tuple)):
+        s = s[0]
     words = s.split()
     counts = defaultdict(int)
     for k in range(1,n+1):

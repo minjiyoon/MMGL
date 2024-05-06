@@ -247,14 +247,16 @@ class WikiWeb2M(torch.utils.data.Dataset):
                     # No image in the section
                     context = context_info
                     visual_ids = torch.LongTensor(self.n_visual_tokens * [self.tokenizer.pad_token_id])
-                    images.append(torch.zeros((3,  224, 224)))
+                    context_image = torch.zeros((3,  224, 224))
                 else:
                     # If image exists, add image caption to the input text
                     context = context_info + context_caption
                     visual_ids = torch.LongTensor(self.n_visual_tokens * [-1])
-                    images.append(context_image)
                 max_text_length = self.max_input_length - input_ids.shape[0] - self.n_visual_tokens
                 context_ids = self.tokenizer(context, max_length=max_text_length, padding="do_not_pad", truncation=True, return_tensors="pt").input_ids[0]
+                if input_ids.shape[0] + context_ids.shape[0] + visual_ids.shape[0] > self.max_input_length:
+                    break
+                images.append(context_image)
                 # Image is concatenated at the end of the input text from the corresponding section
                 image_positions.append(input_ids.shape[0] + context_ids.shape[0] + torch.arange(self.n_visual_tokens))
                 input_ids = torch.cat([input_ids, context_ids, visual_ids], dim=0)

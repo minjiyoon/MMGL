@@ -380,8 +380,9 @@ def main_worker(gpu, world_size, args, log_dir, run):
     if args.test:
         evaluate_loop(test_loader, model, tokenizer, epoch, args, run)
         return
-
+    total_time = 0
     for epoch in range(args.start_epoch, args.epochs):
+        start_time = time.time()
         if epoch == 0:
             evaluate_loop(val_loader, model, tokenizer, epoch-1, args, run)
 
@@ -413,6 +414,10 @@ def main_worker(gpu, world_size, args, log_dir, run):
                 state['scheduler'] = scheduler.state_dict()
             print('=> save best val model ...', args.save_dir)
             torch.save(state, args.save_dir)
+        epoch_time = time.time() - start_time
+        total_time += epoch_time
+        print(f"Epoch {epoch} time: {epoch_time}s")
+    print(f"Total time: {total_time}s")
     # Test
     checkpoint_path = args.save_dir
     print("=> loading best val checkpoint '{}'".format(checkpoint_path))

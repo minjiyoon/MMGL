@@ -253,7 +253,7 @@ class WikiWeb2M(torch.utils.data.Dataset):
                     context = context_info + context_caption
                     visual_ids = torch.LongTensor(self.n_visual_tokens * [-1])
                 max_text_length = self.max_input_length - input_ids.shape[0] - self.n_visual_tokens
-                context_ids = self.tokenizer(context, max_length=max_text_length, padding="do_not_pad", truncation=True, return_tensors="pt").input_ids[0]
+                context_ids = self.tokenizer(context, max_length=max_text_length, padding="do_not_pad", truncation=False, return_tensors="pt").input_ids[0]
                 if input_ids.shape[0] + context_ids.shape[0] + visual_ids.shape[0] > self.max_input_length:
                     break
                 images.append(context_image)

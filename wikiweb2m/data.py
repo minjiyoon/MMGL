@@ -381,6 +381,7 @@ class WikiWeb2M(torch.utils.data.Dataset):
             edge_list.append((previous_image_id, location))
 
         #(3) other section information from the same page
+        previous_section_id = -1
         for context_id in range(len(d['section_title'])):
             if context_id == section_id:
                 continue
@@ -392,7 +393,8 @@ class WikiWeb2M(torch.utils.data.Dataset):
                 location_texts.append(location)
                 location += 1
                 # Graph: previous section - current section (order)
-                edge_list.append((previous_section_id, location))
+                if previous_section_id > -1:
+                    edge_list.append((previous_section_id, location))
                 graph_index[context_id] = location
                 previous_section_id = location
                 
@@ -453,13 +455,13 @@ class WikiWeb2M(torch.utils.data.Dataset):
 
         #Tokenize neighbor texts
         neighbor_texts = self.tokenizer(neighbor_texts, max_length=self.max_input_length, padding="max_length", truncation=True, return_tensors="pt")
-        result["neighbor_input_ids"] = neighbor_texts.input_ids,
-        result["neighbor_attention_mask"] = neighbor_texts.attention_mask,
-        result["neighbor_pos_ids"] = torch.LongTensor(position_texts),
-        result["text_locations"] = torch.LongTensor(location_texts),
-        result["neighbor_images"] = torch.stack(neighbor_images, dim=0),
+        result["neighbor_input_ids"] = neighbor_texts.input_ids
+        result["neighbor_attention_mask"] = neighbor_texts.attention_mask
+        result["neighbor_pos_ids"] = torch.LongTensor(position_texts)
+        result["text_locations"] = torch.LongTensor(location_texts)
+        result["neighbor_images"] = torch.stack(neighbor_images, dim=0)
         result["neighbor_images_pos_ids"] = torch.LongTensor(position_images)
-        result["image_locations"] = torch.LongTensor(location_images),
+        result["image_locations"] = torch.LongTensor(location_images)
         if self.position_type == 'laplacian':
             result["lpe"] = lpe
         if self.position_type == 'gnn':

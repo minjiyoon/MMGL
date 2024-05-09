@@ -169,7 +169,7 @@ class SelfAttentionModel(nn.Module):
         encoder_outputs = self.text_pooler(outputs.last_hidden_state)
         text_embs = self.text_embeddings(encoder_outputs)
 
-        if pos_ids is not None:
+        if self.position_type != "none" and pos_ids is not None:
             pos_ids = pos_ids.reshape(-1)
             text_embs = text_embs + self.text_position_embeddings(pos_ids)
 
@@ -192,7 +192,7 @@ class SelfAttentionModel(nn.Module):
         encoder_outputs = outputs.pooler_output
         visual_embs = self.visual_embeddings(encoder_outputs)
 
-        if pos_ids is not None:
+        if self.position_type != "none" and pos_ids is not None:
             pos_ids = pos_ids.reshape(-1)
             visual_embs = visual_embs + self.visual_position_embeddings(pos_ids)
 
@@ -288,20 +288,23 @@ class SelfAttentionModel(nn.Module):
 
             visual_embeds = self.get_visual_embs(neighbor_images, neighbor_images_pos_ids)
             batch_size, visual_neighbor_num, n_tokens, hidden_dim = visual_embeds.shape
+            batch_idx = torch.arange(batch_size)[:, None]
             visual_attention_mask = neighbor_images_pos_ids > 0
             visual_attention_mask = visual_attention_mask.unsqueeze(-1).expand(-1, -1, self.n_visual_tokens)
 
             # Interleave text and image neighbors
-            neighbor_embeds = torch.zeros((batch_size, text_neighbor_num + visual_neighbor_num, n_tokens, hidden_dim))
+            neighbor_embeds = torch.zeros((batch_size, text_neighbor_num + visual_neighbor_num, n_tokens, hidden_dim),
+                                          device=text_embeds.device)
             neighbor_embeds[batch_idx, text_locations] = text_embeds
-            neighbor_embeds[batch_idx, image_locations] = text_embeds
+            neighbor_embeds[batch_idx, image_locations] = visual_embeds
             neighbor_embeds = neighbor_embeds.reshape(batch_size, -1, hidden_dim)
 
             # Interleave text and image attention masks
             total_neighbor_num = text_neighbor_num + visual_neighbor_num
-            neighbor_attention_mask = torch.zeros((batch_size, total_neighbor_num, n_tokens))
-            neighbor_attention_mask[batch_idx, text_locations] = text_attention_mask
-            neighbor_attention_mask[batch_idx, image_locations] = visual_attention_mask
+            neighbor_attention_mask = torch.zeros((batch_size, total_neighbor_num, n_tokens),
+                                                  device=text_attention_mask.device)
+            neighbor_attention_mask[batch_idx, text_locations] = text_attention_mask.float()
+            neighbor_attention_mask[batch_idx, image_locations] = visual_attention_mask.float()
             neighbor_attention_mask = neighbor_attention_mask.reshape(batch_size, -1)
 
             # Graph position encoding

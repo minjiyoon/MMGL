@@ -274,7 +274,7 @@ class SelfAttentionModel(nn.Module):
 
             if self.decoder_only:
                 # Labels should not be included in loss computation
-                neighbor_labels = -100 * torch.ones((batch_size, neighbor_num * self.n_text_tokens)).to(labels.device)
+                neighbor_labels = -100 * torch.ones((batch_size, neighbor_num * self.n_text_tokens), dtype=labels.dtype).to(labels.device)
                 labels = torch.cat((labels, neighbor_labels), dim=1)
 
             return self.lm(inputs_embeds=input_embs, attention_mask=attention_mask, labels=labels)
@@ -326,7 +326,7 @@ class SelfAttentionModel(nn.Module):
 
             if self.decoder_only:
                 # Labels should not be included in loss computation
-                neighbor_labels = -100 * torch.ones((batch_size, total_neighbor_num * n_tokens)).to(labels.device)
+                neighbor_labels = -100 * torch.ones((batch_size, total_neighbor_num * n_tokens), dtype=labels.dtype).to(labels.device)
                 labels = torch.cat((labels, neighbor_labels), dim=1)
 
             return self.lm(inputs_embeds=input_embs, attention_mask=attention_mask, labels=labels)

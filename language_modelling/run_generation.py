@@ -472,6 +472,10 @@ def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args
             # Only consider loss on reference summary just like encoder-decoder models
             shift_logits = logits[..., args.max_input_length:-1, :].contiguous()
             shift_labels = batch['labels'][..., (args.max_input_length + 1):].contiguous()
+            # Ignore loss for some logits
+            if shift_logits.shape[1] - shift_labels.shape[1] > 0:
+                diff = shift_logits.shape[1] - shift_labels.shape[1]
+                shift_logits = shift_logits[..., :-diff, :]
             # Summary_loss
             summary_loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             losses.update(summary_loss.item(), batch["input_ids"].size(0))
@@ -579,6 +583,11 @@ def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
                 # Only consider loss on reference summary just like encoder-decoder models
                 logits = logits[..., args.max_input_length:-1, :].contiguous()
                 labels = batch['labels'][..., (args.max_input_length + 1):].contiguous()
+
+                # Ignore loss for some logits
+                if logits.shape[1] - labels.shape[1] > 0:
+                    diff = logits.shape[1] - labels.shape[1]
+                    logits = logits[..., :-diff, :]
                 loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
             else:
                 labels = batch['labels']

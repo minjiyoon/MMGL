@@ -121,7 +121,7 @@ class SelfAttentionModel(nn.Module):
         self.visual_model = None
         if self.context in ("session_all", "all"):
             # Vision model to compute embeddings for image neighbors
-            embedding_dim = self.input_embeddings.embedding_dim * args.n_vision_tokens
+            embedding_dim = self.input_embeddings.embedding_dim * args.n_visual_tokens
             self.visual_model = CLIPVisionModel.from_pretrained(args.visual_model)
             self.visual_embeddings = nn.Linear(self.visual_model.config.hidden_size, embedding_dim)
             if args.position_type != "none":
@@ -169,7 +169,7 @@ class SelfAttentionModel(nn.Module):
         encoder_outputs = self.text_pooler(outputs.last_hidden_state)
         text_embs = self.text_embeddings(encoder_outputs)
 
-        if pos_ids is not None:
+        if self.position_type != "none" and pos_ids is not None:
             pos_ids = pos_ids.reshape(-1)
             text_embs = text_embs + self.text_position_embeddings(pos_ids)
 
@@ -192,7 +192,7 @@ class SelfAttentionModel(nn.Module):
         encoder_outputs = outputs.pooler_output
         visual_embs = self.visual_embeddings(encoder_outputs)
 
-        if pos_ids is not None:
+        if self.position_type != "none" and pos_ids is not None:
             pos_ids = pos_ids.reshape(-1)
             visual_embs = visual_embs + self.visual_position_embeddings(pos_ids)
 
@@ -258,7 +258,7 @@ class SelfAttentionModel(nn.Module):
                 # Labels should not be included in loss computation
                 labels[batch_idx, image_positions] = -100
 
-            return self.lm(input_embs=input_embs, attention_mask=attention_mask, labels=labels)
+            return self.lm(inputs_embeds=input_embs, attention_mask=attention_mask, labels=labels)
 
         elif self.neighbor_mode == "embedding" and self.context in ("session", "text_only"):
             # Only text information is provided as embeddings; Compute embeddings for text neighbors
@@ -274,10 +274,10 @@ class SelfAttentionModel(nn.Module):
 
             if self.decoder_only:
                 # Labels should not be included in loss computation
-                neighbor_labels = -100 * torch.ones((batch_size, neighbor_num * self.n_text_tokens)).to(labels.device)
+                neighbor_labels = -100 * torch.ones((batch_size, neighbor_num * self.n_text_tokens), dtype=labels.dtype).to(labels.device)
                 labels = torch.cat((labels, neighbor_labels), dim=1)
 
-            return self.lm(input_embs=input_embs, attention_mask=attention_mask, labels=labels)
+            return self.lm(inputs_embeds=input_embs, attention_mask=attention_mask, labels=labels)
 
         elif self.neighbor_mode == "embedding" and self.context in ("session_all", "all"):
             # Both text and image information are provided as embeddings; Compute embeddings for text and image neighbors
@@ -288,20 +288,23 @@ class SelfAttentionModel(nn.Module):
 
             visual_embeds = self.get_visual_embs(neighbor_images, neighbor_images_pos_ids)
             batch_size, visual_neighbor_num, n_tokens, hidden_dim = visual_embeds.shape
+            batch_idx = torch.arange(batch_size)[:, None]
             visual_attention_mask = neighbor_images_pos_ids > 0
             visual_attention_mask = visual_attention_mask.unsqueeze(-1).expand(-1, -1, self.n_visual_tokens)
 
             # Interleave text and image neighbors
-            neighbor_embeds = torch.zeros((batch_size, text_neighbor_num + visual_neighbor_num, n_tokens, hidden_dim))
+            neighbor_embeds = torch.zeros((batch_size, text_neighbor_num + visual_neighbor_num, n_tokens, hidden_dim),
+                                          device=text_embeds.device)
             neighbor_embeds[batch_idx, text_locations] = text_embeds
-            neighbor_embeds[batch_idx, image_locations] = text_embeds
+            neighbor_embeds[batch_idx, image_locations] = visual_embeds
             neighbor_embeds = neighbor_embeds.reshape(batch_size, -1, hidden_dim)
 
             # Interleave text and image attention masks
             total_neighbor_num = text_neighbor_num + visual_neighbor_num
-            neighbor_attention_mask = torch.zeros((batch_size, total_neighbor_num, n_tokens))
-            neighbor_attention_mask[batch_idx, text_locations] = text_attention_mask
-            neighbor_attention_mask[batch_idx, image_locations] = visual_attention_mask
+            neighbor_attention_mask = torch.zeros((batch_size, total_neighbor_num, n_tokens),
+                                                  device=text_attention_mask.device)
+            neighbor_attention_mask[batch_idx, text_locations] = text_attention_mask.float()
+            neighbor_attention_mask[batch_idx, image_locations] = visual_attention_mask.float()
             neighbor_attention_mask = neighbor_attention_mask.reshape(batch_size, -1)
 
             # Graph position encoding
@@ -323,10 +326,10 @@ class SelfAttentionModel(nn.Module):
 
             if self.decoder_only:
                 # Labels should not be included in loss computation
-                neighbor_labels = -100 * torch.ones((batch_size, total_neighbor_num * n_tokens)).to(labels.device)
+                neighbor_labels = -100 * torch.ones((batch_size, total_neighbor_num * n_tokens), dtype=labels.dtype).to(labels.device)
                 labels = torch.cat((labels, neighbor_labels), dim=1)
 
-            return self.lm(input_embs=input_embs, attention_mask=attention_mask, labels=labels)
+            return self.lm(inputs_embeds=input_embs, attention_mask=attention_mask, labels=labels)
 
         else:
             raise ValueError(f"Neighbor mode: {self.neighbor_mode} and context: {self.context} are not supported.")

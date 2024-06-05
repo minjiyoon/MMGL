@@ -9,6 +9,8 @@ peft
 pillow
 pyarrow
 requests
+tensorflow
 tqdm
 transformers
 wandb
+warmup_scheduler

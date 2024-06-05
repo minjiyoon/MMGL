@@ -29,7 +29,8 @@ mp.set_sharing_strategy('file_system')
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim.lr_scheduler import StepLR
-from torchmetrics import BLEUScore, ROUGEScore
+from torchmetrics import BLEUScore
+from torchmetrics.text import ROUGEScore
 from warmup_scheduler import GradualWarmupScheduler
 
 from datasets import load_dataset
@@ -379,8 +380,9 @@ def main_worker(gpu, world_size, args, log_dir, run):
     if args.test:
         evaluate_loop(test_loader, model, tokenizer, epoch, args, run)
         return
-
+    total_time = 0
     for epoch in range(args.start_epoch, args.epochs):
+        start_time = time.time()
         if epoch == 0:
             evaluate_loop(val_loader, model, tokenizer, epoch-1, args, run)
 
@@ -412,6 +414,10 @@ def main_worker(gpu, world_size, args, log_dir, run):
                 state['scheduler'] = scheduler.state_dict()
             print('=> save best val model ...', args.save_dir)
             torch.save(state, args.save_dir)
+        epoch_time = time.time() - start_time
+        total_time += epoch_time
+        print(f"Epoch {epoch} time: {epoch_time}s")
+    print(f"Total time: {total_time}s")
     # Test
     checkpoint_path = args.save_dir
     print("=> loading best val checkpoint '{}'".format(checkpoint_path))
@@ -466,6 +472,10 @@ def train_loop(train_loader, model, tokenizer, optimizer, epoch, scheduler, args
             # Only consider loss on reference summary just like encoder-decoder models
             shift_logits = logits[..., args.max_input_length:-1, :].contiguous()
             shift_labels = batch['labels'][..., (args.max_input_length + 1):].contiguous()
+            # Ignore loss for some logits
+            if shift_logits.shape[1] - shift_labels.shape[1] > 0:
+                diff = shift_logits.shape[1] - shift_labels.shape[1]
+                shift_logits = shift_logits[..., :-diff, :]
             # Summary_loss
             summary_loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             losses.update(summary_loss.item(), batch["input_ids"].size(0))
@@ -573,6 +583,11 @@ def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
                 # Only consider loss on reference summary just like encoder-decoder models
                 logits = logits[..., args.max_input_length:-1, :].contiguous()
                 labels = batch['labels'][..., (args.max_input_length + 1):].contiguous()
+
+                # Ignore loss for some logits
+                if logits.shape[1] - labels.shape[1] > 0:
+                    diff = logits.shape[1] - labels.shape[1]
+                    logits = logits[..., :-diff, :]
                 loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
             else:
                 labels = batch['labels']
@@ -653,7 +668,7 @@ def evaluate_loop(val_loader, model, tokenizer, epoch, args, run, prefix="val"):
         cands = {idx: [pred] for idx, pred in enumerate(all_generated_captions)}
         refs = {idx: [label] for idx, label in enumerate(all_gt_captions)}
         cider_scores, _ = cider_scorer.compute_score(refs, cands)
-        cider.update(cider_scores['rougeLsum_fmeasure'], 1)
+        cider.update(cider_scores, 1)
 
     batch_time.all_reduce()
     losses.all_reduce()

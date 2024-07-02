@@ -9,7 +9,7 @@ In particular, we focus on MMGL for generative tasks, building upon pretrained L
 augment their text generation with multimodal neighbor contexts.
 
 The original paper can be found at [MMGL](https://arxiv.org/pdf/2310.07478.pdf).
-The initial version of implementation including graph encodings can be found at [research-MMHG] (https://github.com/minjiyoon/research-MMHG/tree/main). 
+The initial version of implementation including graph encodings can be found at [research-MMHG](https://github.com/minjiyoon/research-MMHG/tree/main). 
 
 ## Setup
 
